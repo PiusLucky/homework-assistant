@@ -1,113 +1,156 @@
-import Image from "next/image";
+"use client";
+
+import { useSocket } from "@/hooks/useSocket";
+import { useEffect, useRef, useState } from "react";
+import { Message } from "@/types/chat";
+import { ChatMessage } from "@/components/chat/ChatMessage";
+import { ChatInput } from "@/components/chat/ChatInput";
+
+const hwaApplicationId = "0c4730ca-d225-4337-a423-2aaee14a6bdb";
+const token =
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoiYTE5MjZkNTUtMjcyOS00OGE3LTk5ODEtZjJiMGMyNWYyYWY5IiwiaWF0IjoxNzM2MTAzODUyfQ.trsfzS029Xg3MLHZG9FzV0PuAyNRfExanXrKtmr3CfU";
 
 export default function Home() {
+  const socket = useSocket({
+    token,
+    hwaApplicationId,
+  });
+
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    if (socket) {
+      setIsConnected(true);
+    } else {
+      setIsConnected(false);
+    }
+  }, [socket]);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    // console.log("Socket connected:", socket);
+
+    socket.on("message", (data) => {
+      console.log("Regular message:", data);
+    });
+
+    socket.on("system:message", (data) => {
+      console.log("System message received:", {
+        message: data.message,
+        timestamp: new Date().toISOString(),
+        rawData: data,
+      });
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "system",
+          content: data.message,
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+    });
+
+    socket.on("homework_assistant:response", (data) => {
+      setIsTyping(false);
+      if (data.success) {
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: "assistant",
+            content: data.data.message,
+            timestamp: data.data.timestamp,
+          },
+        ]);
+      }
+    });
+
+    socket.on("homework_assistant:typing", () => {
+      setIsTyping(true);
+    });
+
+    return () => {
+      if (socket) {
+        socket.off("message");
+        socket.off("system:message");
+        socket.off("homework_assistant:response");
+        socket.off("homework_assistant:typing");
+      }
+    };
+  }, [socket]);
+
+  const handleSendMessage = (message: string) => {
+    if (!socket) {
+      console.error("Socket not connected");
+      setMessages((prev) => [
+        ...prev,
+        {
+          type: "system",
+          content: "Unable to send message - not connected to server",
+          timestamp: new Date().toISOString(),
+        },
+      ]);
+      return;
+    }
+
+    const newMessage: Message = {
+      type: "user",
+      content: message,
+      timestamp: new Date().toISOString(),
+    };
+
+    setMessages((prev) => [...prev, newMessage]);
+
+    socket.emit("homework_assistant:request", {
+      eventName: "homework_assistant:request",
+      data: {
+        message,
+        curriculum: "Biology",
+        messageType: "TEXT",
+      },
+    });
+  };
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-between p-24">
-      <div className="z-10 max-w-5xl w-full items-center justify-between font-mono text-sm lg:flex">
-        <p className="fixed left-0 top-0 flex w-full justify-center border-b border-gray-300 bg-gradient-to-b from-zinc-200 pb-6 pt-8 backdrop-blur-2xl dark:border-neutral-800 dark:bg-zinc-800/30 dark:from-inherit lg:static lg:w-auto  lg:rounded-xl lg:border lg:bg-gray-200 lg:p-4 lg:dark:bg-zinc-800/30">
-          Get started by editing&nbsp;
-          <code className="font-mono font-bold">src/app/page.tsx</code>
-        </p>
-
-        <div className="fixed bottom-0 left-0 flex h-48 w-full items-end justify-center bg-gradient-to-t from-white via-white dark:from-black dark:via-black lg:static lg:h-auto lg:w-auto lg:bg-none">
-          <a
-            className="pointer-events-none flex place-items-center gap-2 p-8 lg:pointer-events-auto lg:p-0"
-            href="https://vercel.com?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            By{" "}
-            <Image
-              src="/vercel.svg"
-              alt="Vercel Logo"
-              className="dark:invert"
-              width={100}
-              height={24}
-              priority
+    <main className="flex min-h-screen flex-col">
+      <div className="flex-1 container max-w-4xl mx-auto p-4">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg h-[80vh] flex flex-col">
+          <div className="p-4 border-b flex justify-between items-center">
+            <h1 className="text-xl font-bold">Homework Assistant Chat</h1>
+            <div
+              className={`h-3 w-3 rounded-full ${
+                isConnected ? "bg-green-500" : "bg-red-500"
+              }`}
             />
-          </a>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4">
+            {messages.map((message, index) => (
+              <ChatMessage key={index} message={message} />
+            ))}
+            {isTyping && (
+              <div className="flex items-center gap-2 text-gray-500">
+                <div className="animate-bounce">●</div>
+                <div className="animate-bounce [animation-delay:0.2s]">●</div>
+                <div className="animate-bounce [animation-delay:0.4s]">●</div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+
+          <ChatInput onSend={handleSendMessage} isTyping={isTyping} />
         </div>
-      </div>
-
-      <div className="relative flex place-items-center before:absolute before:h-[300px] before:w-[480px] before:-translate-x-1/2 before:rounded-full before:bg-gradient-radial before:from-white before:to-transparent before:blur-2xl before:content-[''] after:absolute after:-z-20 after:h-[180px] after:w-[240px] after:translate-x-1/3 after:bg-gradient-conic after:from-sky-200 after:via-blue-200 after:blur-2xl after:content-[''] before:dark:bg-gradient-to-br before:dark:from-transparent before:dark:to-blue-700 before:dark:opacity-10 after:dark:from-sky-900 after:dark:via-[#0141ff] after:dark:opacity-40 before:lg:h-[360px] z-[-1]">
-        <Image
-          className="relative dark:drop-shadow-[0_0_0.3rem_#ffffff70] dark:invert"
-          src="/next.svg"
-          alt="Next.js Logo"
-          width={180}
-          height={37}
-          priority
-        />
-      </div>
-
-      <div className="mb-32 grid text-center lg:max-w-5xl lg:w-full lg:mb-0 lg:grid-cols-4 lg:text-left">
-        <a
-          href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className="mb-3 text-2xl font-semibold">
-            Docs{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Find in-depth information about Next.js features and API.
-          </p>
-        </a>
-
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Learn{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Learn about Next.js in an interactive course with&nbsp;quizzes!
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Templates{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Explore starter templates for Next.js.
-          </p>
-        </a>
-
-        <a
-          href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          className="group rounded-lg border border-transparent px-5 py-4 transition-colors hover:border-gray-300 hover:bg-gray-100 hover:dark:border-neutral-700 hover:dark:bg-neutral-800/30"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <h2 className={`mb-3 text-2xl font-semibold`}>
-            Deploy{" "}
-            <span className="inline-block transition-transform group-hover:translate-x-1 motion-reduce:transform-none">
-              -&gt;
-            </span>
-          </h2>
-          <p className={`m-0 max-w-[30ch] text-sm opacity-50`}>
-            Instantly deploy your Next.js site to a shareable URL with Vercel.
-          </p>
-        </a>
       </div>
     </main>
   );
