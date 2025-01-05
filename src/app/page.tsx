@@ -40,8 +40,6 @@ export default function Home() {
   useEffect(() => {
     if (!socket) return;
 
-    // console.log("Socket connected:", socket);
-
     socket.on("message", (data) => {
       console.log("Regular message:", data);
     });
