@@ -78,12 +78,37 @@ export default function Home() {
       setIsTyping(true);
     });
 
+    socket.on("homework_assistant:history:response", (data) => {
+      if (data.success && Array.isArray(data.data)) {
+        const historyMessages: Message[] = data.data.flatMap((item: any) => {
+          return [
+            {
+              type: "user",
+              content: item.question || "Question not available",
+              timestamp: item.createdAt,
+            },
+            {
+              type: "assistant",
+              content: item.answer,
+              timestamp: item.createdAt,
+            },
+          ];
+        });
+        setMessages(historyMessages);
+      }
+    });
+
+    socket.emit("homework_assistant:history:request", {
+      curriculum: "Biology",
+    });
+
     return () => {
       if (socket) {
         socket.off("message");
         socket.off("system:message");
         socket.off("homework_assistant:response");
         socket.off("homework_assistant:typing");
+        socket.off("homework_assistant:history:response");
       }
     };
   }, [socket]);
