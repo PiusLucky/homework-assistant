@@ -50,14 +50,27 @@ export default function Home() {
         timestamp: new Date().toISOString(),
         rawData: data,
       });
-      setMessages((prev) => [
-        ...prev,
-        {
-          type: "system",
-          content: data.message,
-          timestamp: new Date().toISOString(),
-        },
-      ]);
+
+      // Check if data.message exists and is a string
+      if (typeof data === "string") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: "system",
+            content: data,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      } else if (data && typeof data.message === "string") {
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: "system",
+            content: data.message,
+            timestamp: new Date().toISOString(),
+          },
+        ]);
+      }
     });
 
     socket.on("homework_assistant:response", (data) => {
@@ -79,7 +92,7 @@ export default function Home() {
     });
 
     socket.on("homework_assistant:history:response", (data) => {
-      if (data.success && Array.isArray(data.data)) {
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
         const historyMessages: Message[] = data.data.flatMap((item: any) => {
           return [
             {

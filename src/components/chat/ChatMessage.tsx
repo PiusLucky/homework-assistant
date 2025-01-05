@@ -1,12 +1,12 @@
+import ReactMarkdown from "react-markdown";
 import { Message } from "@/types/chat";
-import { cn } from "@/lib/utils";
 import { InfoIcon } from "lucide-react";
 
 interface ChatMessageProps {
   message: Message;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export const ChatMessage = ({ message }: ChatMessageProps) => {
   if (message.type === "system") {
     return (
       <div className="flex items-center justify-center my-4">
@@ -19,26 +19,67 @@ export function ChatMessage({ message }: ChatMessageProps) {
   }
 
   return (
-    <div
-      className={cn(
-        "flex w-full mb-4",
-        message.type === "user" ? "justify-end" : "justify-start"
-      )}
-    >
+    <div className={`mb-4 ${message.type === "user" ? "ml-auto" : "mr-auto"}`}>
       <div
-        className={cn(
-          "max-w-[80%] rounded-lg px-4 py-2",
+        className={`p-4 rounded-lg w-full max-w-[80%] ${
           message.type === "user"
-            ? "bg-blue-500 text-white"
-            : "bg-gray-200 dark:bg-gray-700",
-          "shadow-sm"
-        )}
+            ? "bg-blue-500 text-white ml-auto"
+            : "bg-gray-100 text-gray-800"
+        }`}
       >
-        <p className="text-sm">{message.content}</p>
-        <span className="text-xs opacity-50 mt-1 block">
+        {message.type === "assistant" ? (
+          <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words">
+            <ReactMarkdown
+              className="w-full"
+              components={{
+                h1: ({ node, ...props }) => (
+                  <h1
+                    className="text-2xl font-bold my-4 break-words"
+                    {...props}
+                  />
+                ),
+                h2: ({ node, ...props }) => (
+                  <h2
+                    className="text-xl font-bold my-3 break-words"
+                    {...props}
+                  />
+                ),
+                h3: ({ node, ...props }) => (
+                  <h3
+                    className="text-lg font-bold my-2 break-words"
+                    {...props}
+                  />
+                ),
+                ul: ({ node, ...props }) => (
+                  <ul className="list-disc ml-4 my-2" {...props} />
+                ),
+                ol: ({ node, ...props }) => (
+                  <ol className="list-decimal ml-4 my-2" {...props} />
+                ),
+                code: ({ node, ...props }) => (
+                  <code
+                    className="bg-gray-200 dark:bg-gray-700 rounded px-1 break-words whitespace-pre-wrap"
+                    {...props}
+                  />
+                ),
+                p: ({ node, ...props }) => (
+                  <p className="break-words whitespace-pre-wrap" {...props} />
+                ),
+                pre: ({ node, ...props }) => (
+                  <pre className="overflow-x-auto max-w-full" {...props} />
+                ),
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
+          </div>
+        ) : (
+          <p className="break-words">{message.content}</p>
+        )}
+        <div className="text-xs mt-2 opacity-70">
           {new Date(message.timestamp).toLocaleTimeString()}
-        </span>
+        </div>
       </div>
     </div>
   );
-}
+};
