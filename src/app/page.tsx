@@ -70,7 +70,6 @@ export default function Home() {
   const [isTyping, setIsTyping] = useState(false);
   const [isConnected, setIsConnected] = useState(false);
   const [conversationGroups, setConversationGroups] = useState<any[]>([]);
-  const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
   const [selectedCurriculum, setSelectedCurriculum] = useState("Biology");
@@ -83,7 +82,6 @@ export default function Home() {
   const [isInitializing, setIsInitializing] = useState(false);
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [isFetchingConversations, setIsFetchingConversations] = useState(true);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [limit, setLimit] = useState(10);
 
   const scrollToBottom = () => {
@@ -184,7 +182,6 @@ export default function Home() {
         );
         setMessages(historyMessages);
       }
-      setIsLoadingHistory(false);
     });
 
     return () => {
@@ -228,7 +225,6 @@ export default function Home() {
 
   const handleConversationClick = (groupId: string) => {
     setActiveConversation(groupId);
-    setIsLoadingHistory(true);
     socket?.emit("homework_assistant:history:request", {
       eventName: "homework_assistant:history:request",
       data: {

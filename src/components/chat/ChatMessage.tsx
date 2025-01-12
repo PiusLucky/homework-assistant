@@ -23,7 +23,7 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
       <div
         className={`p-4 rounded-lg w-full max-w-[80%] ${
           message.type === "user"
-            ? "bg-blue-500 text-white ml-auto"
+            ? "bg-gradient-to-r from-teal-500 to-cyan-600 text-white ml-auto"
             : "bg-gray-100 text-gray-800"
         }`}
       >

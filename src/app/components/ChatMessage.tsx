@@ -31,8 +31,8 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
       <div
         className={`max-w-[70%] rounded-lg p-3 ${
           message.type === "user"
-            ? "bg-indigo-500 text-white"
-            : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200"
+            ? "bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 hover:from-blue-600 hover:via-blue-700 hover:to-blue-800 text-white shadow-md hover:shadow-lg transition-all duration-200"
+            : "bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 shadow-sm"
         }`}
       >
         <div className="prose dark:prose-invert max-w-none">
@@ -41,7 +41,7 @@ const ChatMessage: React.FC<ChatMessageProps> = ({ message }) => {
         <div
           className={`text-xs mt-1 ${
             message.type === "user"
-              ? "text-indigo-100"
+              ? "text-white/90"
               : "text-gray-500 dark:text-gray-400"
           }`}
         >
