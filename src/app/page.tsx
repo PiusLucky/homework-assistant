@@ -281,6 +281,10 @@ export default function Home() {
       type: "user",
       content: message,
       timestamp: new Date().toISOString(),
+      metadata: {
+        questionType: messageType,
+        mediaUrl: mediaUrl ? mediaUrl : undefined,
+      },
     };
 
     setMessages((prev) => [...prev, newMessage]);
