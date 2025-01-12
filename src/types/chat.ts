@@ -1,4 +1,5 @@
 export interface Message {
+  curriculum?: string;
   type: "user" | "assistant" | "system";
   content: string;
   timestamp: string;

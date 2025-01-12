@@ -144,6 +144,7 @@ export default function Home() {
             content: data.data.message,
             timestamp: data.data.timestamp,
             metadata: data.data.metadata,
+            curriculum: data.data.curriculum,
           },
         ]);
       }
@@ -162,8 +163,8 @@ export default function Home() {
               type: "user",
               content: item.question,
               timestamp: item.createdAt,
+              curriculum: item.curriculum,
               metadata: {
-                curriculum: item.curriculum,
                 questionType: item.questionType,
                 mediaUrl: item?.metadata?.mediaUrl
                   ? item?.metadata?.mediaUrl
@@ -175,6 +176,7 @@ export default function Home() {
               content: item.answer,
               timestamp: item.createdAt,
               metadata: item.metadata,
+              curriculum: item.curriculum,
             },
           ]);
         setMessages(historyMessages);
@@ -303,10 +305,14 @@ export default function Home() {
     // Set typing indicator
     setIsTyping(true);
 
+    const initialMessageCurriculum = messages?.[0]?.curriculum;
+
     // Prepare payload with conditional isNewChat
     const payload = {
       message,
-      curriculum: selectedCurriculum,
+      curriculum: initialMessageCurriculum
+        ? initialMessageCurriculum
+        : selectedCurriculum,
       studentClass: selectedClass,
       messageType: messageType,
       ...(isFirstMessage ? { isNewChat: true } : {}),
