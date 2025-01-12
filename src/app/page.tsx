@@ -22,6 +22,12 @@ const CURRICULUMS = [
   "English",
   "Geography",
   "History",
+  "Civic Education",
+  "Economics",
+  "Literature",
+  "Government",
+  "Business Studies",
+  "Computer Science",
 ];
 
 const CLASS_LEVELS = [
@@ -66,6 +72,12 @@ export default function Home() {
   const [activeConversation, setActiveConversation] = useState<string | null>(
     null
   );
+  const [isLoading, setIsLoading] = useState(false);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const [isFetchingConversations, setIsFetchingConversations] = useState(true);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [limit, setLimit] = useState(10);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -121,12 +133,18 @@ export default function Home() {
     socket.on("homework_assistant:response", (data) => {
       setIsTyping(false);
       if (data.success) {
+        if (data.data.metadata?.groupId && activeConversation === "new") {
+          setActiveConversation(data.data.metadata.groupId);
+          fetchConversationGroups();
+        }
+
         setMessages((prev) => [
           ...prev,
           {
             type: "assistant",
             content: data.data.message,
             timestamp: data.data.timestamp,
+            metadata: data.data.metadata,
           },
         ]);
       }
@@ -137,23 +155,29 @@ export default function Home() {
     });
 
     socket.on("homework_assistant:history:response", (data) => {
-      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
-        const historyMessages: Message[] = data.data.flatMap((item: any) => {
-          return [
+      if (data.success && data.data?.conversations) {
+        const historyMessages: Message[] = data.data.conversations.flatMap(
+          (item: any) => [
             {
               type: "user",
-              content: item.question || "Question not available",
+              content: item.question,
               timestamp: item.createdAt,
+              metadata: {
+                curriculum: item.curriculum,
+                questionType: item.questionType,
+              },
             },
             {
               type: "assistant",
               content: item.answer,
               timestamp: item.createdAt,
+              metadata: item.metadata,
             },
-          ];
-        });
+          ]
+        );
         setMessages(historyMessages);
       }
+      setIsLoadingHistory(false);
     });
 
     return () => {
@@ -167,38 +191,37 @@ export default function Home() {
     };
   }, [socket]);
 
+  const fetchConversationGroups = async () => {
+    setIsFetchingConversations(true);
+    try {
+      const response = await axiosInstance.get(
+        `/homework-ai-assistant/conversation-groups?page=1&limit=${limit}`
+      );
+      const { groups, pagination } = response.data.data;
+
+      // Simulate loading delay
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+
+      setConversationGroups(groups);
+      setHasMore(groups.length < pagination.total);
+    } catch (error) {
+      console.error("Failed to fetch conversation groups:", error);
+    } finally {
+      setIsFetchingConversations(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchConversationGroups = async () => {
-      try {
-        const response = await axiosInstance.get(
-          `/homework-ai-assistant/conversation-groups?page=${page}&limit=10`
-        );
-        const { groups, pagination } = response.data.data;
-
-        // Use a Map to ensure unique entries by ID
-        setConversationGroups((prev) => {
-          const uniqueGroups = new Map();
-          [...prev, ...groups].forEach((group) =>
-            uniqueGroups.set(group.id, group)
-          );
-          return Array.from(uniqueGroups.values());
-        });
-
-        setHasMore(page < pagination.totalPages);
-      } catch (error) {
-        console.error("Failed to fetch conversation groups:", error);
-      }
-    };
-
     fetchConversationGroups();
-  }, [page]);
+  }, [limit]);
 
   const handleLoadMore = () => {
-    setPage((prev) => prev + 1);
+    setLimit((prevLimit) => prevLimit + 10);
   };
 
   const handleConversationClick = (groupId: string) => {
     setActiveConversation(groupId);
+    setIsLoadingHistory(true);
     socket?.emit("homework_assistant:history:request", {
       eventName: "homework_assistant:history:request",
       data: {
@@ -211,20 +234,26 @@ export default function Home() {
     setShowNewChatModal(true);
   };
 
-  const startNewChat = () => {
-    setActiveConversation(null);
-    setMessages([]);
-    socket?.emit("homework_assistant:request", {
-      eventName: "homework_assistant:request",
-      data: {
-        message: "Hello",
-        curriculum: selectedCurriculum,
-        studentClass: selectedClass,
-        messageType: "TEXT",
-        isNewChat: true,
-      },
-    });
-    setShowNewChatModal(false);
+  const startNewChat = async () => {
+    setIsLoading(true);
+    try {
+      setShowNewChatModal(false);
+      setIsInitializing(true);
+
+      // Simulate a loading sequence
+      await new Promise((resolve) => setTimeout(resolve, 800)); // First phase
+      setMessages([]);
+
+      await new Promise((resolve) => setTimeout(resolve, 1200)); // Second phase
+
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Final phase
+      setActiveConversation("new"); // Set to "new" to indicate a fresh chat
+      setIsInitializing(false);
+    } catch (error) {
+      console.error("Error setting up new chat:", error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleSendMessage = (message: string) => {
@@ -249,15 +278,99 @@ export default function Home() {
 
     setMessages((prev) => [...prev, newMessage]);
 
+    const isFirstMessage = activeConversation === "new";
+
+    if (isFirstMessage) {
+      setIsCreatingChat(true);
+      setActiveConversation("loading");
+    }
+
+    // Set typing indicator
+    setIsTyping(true);
+
+    // Prepare payload with conditional isNewChat
+    const payload = {
+      message,
+      curriculum: selectedCurriculum,
+      studentClass: selectedClass,
+      messageType: "TEXT",
+      ...(isFirstMessage ? { isNewChat: true } : {}),
+      groupId: isFirstMessage ? undefined : activeConversation,
+    };
+
+    // Emit the socket event with the correct structure
     socket.emit("homework_assistant:request", {
       eventName: "homework_assistant:request",
-      data: {
-        message,
-        curriculum: selectedCurriculum,
-        studentClass: selectedClass,
-        messageType: "TEXT",
-      },
+      data: payload,
     });
+  };
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("homework_assistant:response", (data) => {
+      setIsTyping(false);
+      setIsCreatingChat(false);
+      if (data.success) {
+        // If this was a new chat, update the active conversation with the new group ID
+        if (data.data.metadata?.groupId) {
+          setActiveConversation(data.data.metadata.groupId);
+          // Refresh the conversation list to show the new chat
+          fetchConversationGroups();
+        }
+
+        setMessages((prev) => [
+          ...prev,
+          {
+            type: "assistant",
+            content: data.data.message,
+            timestamp: data.data.timestamp,
+            metadata: data.data.metadata,
+          },
+        ]);
+      }
+    });
+
+    return () => {
+      socket.off("homework_assistant:response");
+    };
+  }, [socket]);
+
+  const formatMessageDate = (date: string) => {
+    const messageDate = new Date(date);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+
+    if (messageDate.toDateString() === today.toDateString()) {
+      return "Today";
+    } else if (messageDate.toDateString() === yesterday.toDateString()) {
+      return "Yesterday";
+    } else {
+      return messageDate.toLocaleDateString("en-US", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+    }
+  };
+
+  const groupMessagesByDate = (messages: Message[]) => {
+    const groups: { [key: string]: Message[] } = {};
+
+    messages.forEach((message) => {
+      const date = new Date(message.timestamp).toDateString();
+      if (!groups[date]) {
+        groups[date] = [];
+      }
+      groups[date].push(message);
+    });
+
+    return Object.entries(groups).map(([date, messages]) => ({
+      date,
+      messages,
+    }));
   };
 
   return (
@@ -310,15 +423,24 @@ export default function Home() {
             <div className="flex justify-end gap-2">
               <button
                 onClick={() => setShowNewChatModal(false)}
-                className="px-4 py-2 text-gray-600 hover:text-gray-800 dark:text-gray-300 dark:hover:text-white"
+                className="px-4 py-2 bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400 hover:from-gray-500 hover:via-gray-600 hover:to-gray-500 text-white rounded-md transition-all duration-200 shadow-md hover:shadow-lg"
+                disabled={isLoading}
               >
                 Cancel
               </button>
               <button
                 onClick={startNewChat}
-                className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                disabled={isLoading}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white rounded-md transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
               >
-                Start Chat
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  "Start Chat"
+                )}
               </button>
             </div>
           </div>
@@ -331,7 +453,7 @@ export default function Home() {
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <button
             onClick={handleNewChat}
-            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2"
+            className="w-full bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-all duration-200 shadow-md hover:shadow-lg"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -353,39 +475,72 @@ export default function Home() {
         <div className="flex-1 overflow-y-auto">
           <div className="p-4">
             <h2 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-2">
-              Recent Conversations
+              Recent Conversations{" "}
+              <small className="text-xs text-gray-500">
+                {isFetchingConversations ? "Updating..." : ""}
+              </small>
             </h2>
-            <ul className="space-y-2">
-              {conversationGroups.map((group) => (
-                <li
-                  key={group.id}
-                  onClick={() => handleConversationClick(group.id)}
-                  className="p-3 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
-                >
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    className="h-5 w-5 text-gray-500"
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
+            {conversationGroups.length === 0 ? (
+              <div className="text-center py-8">
+                <span className="text-sm text-gray-500">
+                  No conversations yet
+                </span>
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {conversationGroups.map((group) => (
+                  <li
+                    key={group.id}
+                    onClick={() => handleConversationClick(group.id)}
+                    className={`p-3 rounded-lg cursor-pointer transition-all duration-200 flex items-center gap-3 ${
+                      activeConversation === group.id
+                        ? "bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 shadow-sm"
+                        : "hover:bg-gray-100 dark:hover:bg-gray-700"
+                    }`}
                   >
-                    <path
-                      fillRule="evenodd"
-                      d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="text-sm text-gray-800 dark:text-gray-200">
-                    {group.title}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className={`h-5 w-5 ${
+                        activeConversation === group.id
+                          ? "text-indigo-500"
+                          : "text-gray-500"
+                      }`}
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M18 10c0 3.866-3.582 7-8 7a8.841 8.841 0 01-4.083-.98L2 17l1.338-3.123C2.493 12.767 2 11.434 2 10c0-3.866 3.582-7 8-7s8 3.134 8 7zM7 9H5v2h2V9zm8 0h-2v2h2V9zM9 9h2v2H9V9z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                    <span
+                      className={`text-sm ${
+                        activeConversation === group.id
+                          ? "text-indigo-700 font-medium"
+                          : "text-gray-800 dark:text-gray-200"
+                      }`}
+                    >
+                      {group.title}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
             {hasMore && (
               <button
                 onClick={handleLoadMore}
-                className="mt-4 w-full py-2 px-4 text-sm text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+                disabled={isFetchingConversations}
+                className="mt-4 w-full py-2 px-4 bg-gradient-to-r from-gray-100 via-indigo-100 to-purple-100 hover:from-gray-200 hover:via-indigo-200 hover:to-purple-200 text-indigo-600 rounded-lg transition-all duration-200 shadow-sm hover:shadow flex items-center justify-center gap-2 border border-gray-200"
               >
-                Load More
+                {isFetchingConversations ? (
+                  <>
+                    <div className="w-4 h-4 rounded-full border-2 border-indigo-600 border-t-transparent animate-spin"></div>
+                    <span className="text-sm">Loading...</span>
+                  </>
+                ) : (
+                  <span className="text-sm">Load More</span>
+                )}
               </button>
             )}
           </div>
@@ -412,35 +567,11 @@ export default function Home() {
             <h1 className="text-xl font-bold text-gray-800 dark:text-white">
               Homework Assistant Chat
             </h1>
-            <div className="flex gap-4">
-              <select
-                value={selectedCurriculum}
-                onChange={(e) => setSelectedCurriculum(e.target.value)}
-                className="px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
-              >
-                {CURRICULUMS.map((curriculum) => (
-                  <option key={curriculum} value={curriculum}>
-                    {curriculum}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="px-3 py-2 border rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white text-sm"
-              >
-                {CLASS_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
         </div>
 
         {/* Messages or Empty State */}
-        {!activeConversation ? (
+        {activeConversation === null ? (
           <div className="flex-1 flex items-center justify-center bg-gray-50 dark:bg-gray-900">
             <div className="text-center">
               <svg
@@ -466,18 +597,96 @@ export default function Home() {
               </p>
             </div>
           </div>
+        ) : activeConversation === "loading" ||
+          isInitializing ||
+          isCreatingChat ? (
+          <div className="flex-1 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div className="w-16 h-16 mb-4">
+              <div className="w-full h-full rounded-full border-4 border-indigo-400 border-t-transparent animate-spin"></div>
+            </div>
+            <div className="text-center">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                {isInitializing || activeConversation === "loading" ? (
+                  <div className="flex flex-col items-center space-y-1">
+                    <span>Preparing your conversation</span>
+                    <span className="text-sm text-gray-500">
+                      Setting up {selectedCurriculum} assistant for{" "}
+                      {selectedClass}
+                    </span>
+                  </div>
+                ) : (
+                  "Creating new chat..."
+                )}
+              </h3>
+              <div className="flex items-center justify-center gap-1">
+                <div className="w-2 h-2 rounded-full bg-indigo-400 animate-bounce"></div>
+                <div className="w-2 h-2 rounded-full bg-purple-400 animate-bounce [animation-delay:0.2s]"></div>
+                <div className="w-2 h-2 rounded-full bg-pink-400 animate-bounce [animation-delay:0.4s]"></div>
+              </div>
+            </div>
+          </div>
         ) : (
           <>
             <div className="flex-1 overflow-y-auto p-4 bg-gray-50 dark:bg-gray-900">
-              {messages.map((message, index) => (
-                <ChatMessage key={index} message={message} />
-              ))}
-              {isTyping && (
-                <div className="flex items-center gap-2 text-gray-500">
-                  <div className="animate-bounce">●</div>
-                  <div className="animate-bounce [animation-delay:0.2s]">●</div>
-                  <div className="animate-bounce [animation-delay:0.4s]">●</div>
+              {activeConversation === "new" ? (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <div className="max-w-md">
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">
+                      Start Your Conversation
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                      Ask any question about {selectedCurriculum} for{" "}
+                      {selectedClass}
+                    </p>
+                  </div>
                 </div>
+              ) : (
+                <>
+                  {groupMessagesByDate(messages).map(
+                    ({ date, messages: groupedMessages }, groupIndex) => (
+                      <div key={date} className="space-y-4">
+                        <div className="flex justify-center">
+                          <div className="bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full">
+                            <span className="text-xs text-gray-600 dark:text-gray-300">
+                              {formatMessageDate(date)}
+                            </span>
+                          </div>
+                        </div>
+                        {groupedMessages.map((message, messageIndex) => (
+                          <ChatMessage
+                            key={`${groupIndex}-${messageIndex}`}
+                            message={message}
+                          />
+                        ))}
+                      </div>
+                    )
+                  )}
+                  {isTyping && (
+                    <div className="flex items-center gap-3 p-4 max-w-[70%] bg-white dark:bg-gray-800 rounded-lg shadow-sm">
+                      <div className="relative w-8 h-8">
+                        <div className="absolute inset-0 rounded-full bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 animate-pulse"></div>
+                        <div className="absolute inset-1 rounded-full bg-white dark:bg-gray-800 flex items-center justify-center">
+                          <svg
+                            className="w-4 h-4 text-indigo-500 animate-bounce"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                            />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
+                        Brilliance AI is thinking...
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
               <div ref={messagesEndRef} />
             </div>
