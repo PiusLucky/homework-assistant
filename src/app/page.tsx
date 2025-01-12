@@ -28,6 +28,13 @@ const CURRICULUMS = [
   "Government",
   "Business Studies",
   "Computer Science",
+  "Agricultural Science",
+  "Technical Drawing",
+  "Christian Religious Studies",
+  "Islamic Religious Studies",
+  "Physical and Health Education",
+  "Music",
+  "Art",
 ];
 
 const CLASS_LEVELS = [
@@ -313,9 +320,9 @@ export default function Home() {
       setIsCreatingChat(false);
       if (data.success) {
         // If this was a new chat, update the active conversation with the new group ID
-        if (data.data.metadata?.groupId) {
+        if (data.data.metadata?.groupId && activeConversation === "loading") {
           setActiveConversation(data.data.metadata.groupId);
-          // Refresh the conversation list to show the new chat
+          // Only refresh the conversation list for new chats
           fetchConversationGroups();
         }
 
@@ -334,7 +341,7 @@ export default function Home() {
     return () => {
       socket.off("homework_assistant:response");
     };
-  }, [socket]);
+  }, [socket, activeConversation]);
 
   const formatMessageDate = (date: string) => {
     const messageDate = new Date(date);
