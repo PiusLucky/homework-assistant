@@ -178,6 +178,10 @@ export default function Home() {
             },
           ]);
         setMessages(historyMessages);
+        // Scroll to bottom after messages are loaded
+        setTimeout(() => {
+          messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+        }, 100);
       }
     });
 
@@ -384,6 +388,12 @@ export default function Home() {
       messages,
     }));
   };
+
+  useEffect(() => {
+    if (activeConversation === "new" || activeConversation === "loading") {
+      scrollToBottom();
+    }
+  }, [messages, activeConversation]);
 
   return (
     <main className="flex h-screen bg-gray-100 dark:bg-gray-900">
