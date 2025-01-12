@@ -1,34 +1,44 @@
-import { useState, useRef } from "react";
-import { Button } from "../ui/button";
-import { BASE_URL, token } from "@/lib/constant";
+import React, { useState, useRef } from "react";
 
 interface ChatInputProps {
-  onSend: (message: string, messageType: string, mediaUrl?: string) => void;
-  isTyping: boolean;
+  onSendMessage: (
+    message: string,
+    messageType?: string,
+    mediaUrl?: string
+  ) => void;
+  isLoading?: boolean;
+  curriculum: string;
+  studentClass: string;
 }
 
-export function ChatInput({ onSend, isTyping }: ChatInputProps) {
+const ChatInput: React.FC<ChatInputProps> = ({
+  onSendMessage,
+  isLoading,
+  curriculum,
+  studentClass,
+}) => {
   const [message, setMessage] = useState("");
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadedFile, setUploadedFile] = useState<{
-    url: string;
-    type: "IMAGE" | "DOCUMENT";
-  } | null>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [uploadType, setUploadType] = useState<"image" | "document" | null>(
+    null
+  );
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (message.trim()) {
-      // If there's an uploaded file, include it in the message
-      if (uploadedFile) {
-        onSend(message, uploadedFile?.type, uploadedFile?.url);
-        setUploadedFile(null); // Clear the uploaded file after sending
-      } else {
-        onSend(message, "TEXT");
-      }
+    if (message.trim() && !isLoading) {
+      onSendMessage(message);
       setMessage("");
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleSubmit(e);
     }
   };
 
@@ -59,18 +69,15 @@ export function ChatInput({ onSend, isTyping }: ChatInputProps) {
     try {
       setIsUploading(true);
       const formData = new FormData();
-      formData.append(type === "image" ? "image" : "document", file);
+      formData.append("file", file);
 
       const endpoint =
         type === "image"
           ? "/homework-ai-assistant/upload-image"
           : "/homework-ai-assistant/upload-document";
 
-      const response = await fetch(`${BASE_URL}${endpoint}`, {
+      const response = await fetch(endpoint, {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         body: formData,
       });
 
@@ -79,12 +86,8 @@ export function ChatInput({ onSend, isTyping }: ChatInputProps) {
       }
 
       const data = await response.json();
-      console.log(data?.data?.mediaUrl);
-      // Store the uploaded file info instead of sending immediately
-      setUploadedFile({
-        url: data?.data?.mediaUrl,
-        type: type === "image" ? "IMAGE" : "DOCUMENT",
-      });
+      const message = `I need help understanding this ${type}`;
+      onSendMessage(message, type.toUpperCase(), data.url);
       setShowUploadModal(false);
     } catch (err) {
       setError("Failed to upload file. Please try again.");
@@ -97,95 +100,72 @@ export function ChatInput({ onSend, isTyping }: ChatInputProps) {
   };
 
   const handleUploadClick = (type: "image" | "document") => {
+    setUploadType(type);
     if (fileInputRef.current) {
-      fileInputRef.current.accept =
-        type === "image" ? "image/jpeg,image/png" : "application/pdf";
       fileInputRef.current.click();
     }
   };
 
   return (
-    <form onSubmit={handleSubmit} className="flex gap-2 p-4 border-t">
-      <div className="flex-1 relative">
-        <input
-          type="text"
+    <div className="border-t dark:border-gray-700 bg-white dark:bg-gray-800 p-4">
+      <form onSubmit={handleSubmit} className="flex items-end space-x-2">
+        <textarea
+          ref={textareaRef}
           value={message}
           onChange={(e) => setMessage(e.target.value)}
-          placeholder={
-            uploadedFile
-              ? "Describe your question about the uploaded file..."
-              : "Ask your question..."
-          }
-          className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800"
+          onKeyDown={handleKeyDown}
+          placeholder="Type your message..."
+          className="flex-1 resize-none rounded-lg border dark:border-gray-600 p-2 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+          rows={1}
+          disabled={isLoading}
         />
-        {uploadedFile && (
-          <div className="absolute -top-8 left-0 right-0 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 text-xs p-1 rounded flex justify-between items-center">
-            <span>File uploaded - add your question and click send</span>
-            <button
-              type="button"
-              onClick={() => setUploadedFile(null)}
-              className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-200"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Upload button */}
-      <Button
-        type="button"
-        onClick={() => setShowUploadModal(true)}
-        disabled={!!uploadedFile}
-        className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white p-2 disabled:opacity-50"
-        title="Upload file"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          className="w-5 h-5"
+        <button
+          type="button"
+          onClick={() => setShowUploadModal(true)}
+          className="p-2 rounded-lg text-gray-500 hover:text-blue-500 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          disabled={isLoading}
+          title="Upload file"
         >
-          <path
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="24"
+            height="24"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
-            strokeWidth="2"
-            d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
-          />
-        </svg>
-      </Button>
-
-      <Button
-        type="submit"
-        disabled={isTyping || !message.trim()}
-        className="bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white"
-      >
-        Send
-      </Button>
+            className="h-6 w-6"
+          >
+            <path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48" />
+          </svg>
+        </button>
+        <button
+          type="submit"
+          disabled={!message.trim() || isLoading}
+          className={`px-4 py-2 rounded-lg ${
+            !message.trim() || isLoading
+              ? "bg-gray-300 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-500 via-blue-600 to-blue-700 text-white hover:from-blue-600 hover:via-blue-700 hover:to-blue-800"
+          }`}
+        >
+          Send
+        </button>
+      </form>
 
       {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
         className="hidden"
+        accept={
+          uploadType === "image" ? "image/jpeg,image/png" : "application/pdf"
+        }
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) {
-            const type = file.type.startsWith("image/") ? "image" : "document";
-            handleFileSelect(file, type);
+          if (file && uploadType) {
+            handleFileSelect(file, uploadType);
           }
         }}
       />
@@ -295,6 +275,8 @@ export function ChatInput({ onSend, isTyping }: ChatInputProps) {
           </div>
         </div>
       )}
-    </form>
+    </div>
   );
-}
+};
+
+export default ChatInput;

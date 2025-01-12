@@ -6,13 +6,7 @@ import { Message } from "@/types/chat";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import axios from "axios";
-
-// Define the base URL
-const BASE_URL = "https://api.brilliancelearn.com/api/v1";
-
-const hwaApplicationId = "0c4730ca-d225-4337-a423-2aaee14a6bdb";
-const token =
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJkYXRhIjoiYTE5MjZkNTUtMjcyOS00OGE3LTk5ODEtZjJiMGMyNWYyYWY5IiwiaWF0IjoxNzM2MTAzODUyfQ.trsfzS029Xg3MLHZG9FzV0PuAyNRfExanXrKtmr3CfU";
+import { BASE_URL, token, hwaApplicationId } from "@/lib/constant";
 
 const CURRICULUMS = [
   "Biology",
@@ -216,8 +210,11 @@ export default function Home() {
   };
 
   useEffect(() => {
-    fetchConversationGroups();
-  }, [limit]);
+    if (isConnected) {
+      fetchConversationGroups();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [limit, isConnected]);
 
   const handleLoadMore = () => {
     setLimit((prevLimit) => prevLimit + 10);
@@ -259,7 +256,11 @@ export default function Home() {
     }
   };
 
-  const handleSendMessage = (message: string) => {
+  const handleSendMessage = (
+    message: string,
+    messageType: string,
+    mediaUrl?: string
+  ) => {
     if (!socket) {
       console.error("Socket not connected");
       setMessages((prev) => [
@@ -296,9 +297,10 @@ export default function Home() {
       message,
       curriculum: selectedCurriculum,
       studentClass: selectedClass,
-      messageType: "TEXT",
+      messageType: messageType,
       ...(isFirstMessage ? { isNewChat: true } : {}),
       groupId: isFirstMessage ? undefined : activeConversation,
+      mediaUrl: mediaUrl ? mediaUrl : undefined,
     };
 
     // Emit the socket event with the correct structure
