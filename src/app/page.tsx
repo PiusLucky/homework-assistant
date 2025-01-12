@@ -155,8 +155,9 @@ export default function Home() {
 
     socket.on("homework_assistant:history:response", (data) => {
       if (data.success && data.data?.conversations) {
-        const historyMessages: Message[] = data.data.conversations.flatMap(
-          (item: any) => [
+        const historyMessages: Message[] = data.data.conversations
+          .reverse()
+          .flatMap((item: any) => [
             {
               type: "user",
               content: item.question,
@@ -164,6 +165,9 @@ export default function Home() {
               metadata: {
                 curriculum: item.curriculum,
                 questionType: item.questionType,
+                mediaUrl: item?.metadata?.mediaUrl
+                  ? item?.metadata?.mediaUrl
+                  : undefined,
               },
             },
             {
@@ -172,8 +176,7 @@ export default function Home() {
               timestamp: item.createdAt,
               metadata: item.metadata,
             },
-          ]
-        );
+          ]);
         setMessages(historyMessages);
       }
     });

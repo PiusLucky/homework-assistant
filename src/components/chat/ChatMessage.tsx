@@ -7,6 +7,7 @@ interface ChatMessageProps {
 }
 
 export const ChatMessage = ({ message }: ChatMessageProps) => {
+  console.log(message);
   if (message.type === "system") {
     return (
       <div className="flex items-center justify-center my-4">
@@ -74,7 +75,20 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
             </ReactMarkdown>
           </div>
         ) : (
-          <p className="break-words">{message.content}</p>
+          <div>
+            {message.metadata?.mediaUrl &&
+              message.metadata?.questionType === "IMAGE" && (
+                <div className="mb-3">
+                  <img
+                    src={message?.metadata?.mediaUrl}
+                    alt="Uploaded content"
+                    className="rounded-lg max-w-full h-auto shadow-lg hover:shadow-xl transition-shadow duration-200"
+                    style={{ maxHeight: "300px" }}
+                  />
+                </div>
+              )}
+            <p className="break-words">{message.content}</p>
+          </div>
         )}
         <div className="text-xs mt-2 opacity-70">
           {new Date(message.timestamp).toLocaleTimeString()}

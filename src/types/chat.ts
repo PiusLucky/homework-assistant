@@ -2,6 +2,10 @@ export interface Message {
   type: "user" | "assistant" | "system";
   content: string;
   timestamp: string;
+  metadata?: {
+    mediaUrl?: string;
+    questionType?: string;
+  };
 }
 
 export interface ChatRequest {
