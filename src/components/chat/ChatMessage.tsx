@@ -7,7 +7,6 @@ interface ChatMessageProps {
 }
 
 export const ChatMessage = ({ message }: ChatMessageProps) => {
-  console.log(message);
   if (message.type === "system") {
     return (
       <div className="flex items-center justify-center my-4">

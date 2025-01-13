@@ -34,7 +34,7 @@ class SocketService {
       throw new Error("Socket configuration not set. Call setConfig first.");
     }
 
-    if (this.socket?.connected) {
+    if (this.socket?.active) {
       return this.socket;
     }
 
@@ -84,7 +84,7 @@ class SocketService {
   }
 
   public getSocket(): Socket | null {
-    if (!this.socket?.connected && this.config) {
+    if (!this.socket?.active && this.config) {
       return this.connect();
     }
     return this.socket;
