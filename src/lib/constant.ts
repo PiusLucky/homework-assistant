@@ -1,5 +1,5 @@
 // Define the base URL
-export const BASE_URL = "http://localhost:7000/api/v1";
+export const BASE_URL = "https://api.brilliancelearn.com/api/v1";
 
 export const hwaApplicationId = "9e2c7a62-f8a4-4cc1-a6e1-183da95937c5";
 export const token =
