@@ -1,6 +1,9 @@
 import ReactMarkdown from "react-markdown";
 import { Message } from "@/types/chat";
 import { InfoIcon } from "lucide-react";
+import "katex/dist/katex.min.css"; // Import the CSS for KaTeX
+import remarkMath from "remark-math";
+import rehypeKatex from "rehype-katex";
 
 interface ChatMessageProps {
   message: Message;
@@ -31,6 +34,8 @@ export const ChatMessage = ({ message }: ChatMessageProps) => {
           <div className="prose prose-sm dark:prose-invert max-w-none overflow-hidden break-words">
             <ReactMarkdown
               className="w-full"
+              remarkPlugins={[remarkMath]}
+              rehypePlugins={[rehypeKatex]}
               components={{
                 h1: ({ node, ...props }) => (
                   <h1

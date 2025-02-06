@@ -8,28 +8,7 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import axios from "axios";
 import { BASE_URL, token, hwaApplicationId } from "@/lib/constant";
 
-const CURRICULUMS = [
-  "Biology",
-  "Physics",
-  "Chemistry",
-  "Mathematics",
-  "English",
-  "Geography",
-  "History",
-  "Civic Education",
-  "Economics",
-  "Literature",
-  "Government",
-  "Business Studies",
-  "Computer Science",
-  "Agricultural Science",
-  "Technical Drawing",
-  "Christian Religious Studies",
-  "Islamic Religious Studies",
-  "Physical and Health Education",
-  "Music",
-  "Art",
-];
+const CURRICULUMS = ["Nigerian", "British", "American"];
 
 const CLASS_LEVELS = [
   "Primary 1",
@@ -402,10 +381,10 @@ export default function Home() {
   }, [messages, activeConversation]);
 
   return (
-    <main className="flex h-screen bg-gray-100 dark:bg-gray-900">
+    <main className="flex !h-screen bg-gray-100 dark:bg-gray-900">
       {/* New Chat Modal */}
       {showNewChatModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="!fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
             <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
               Start New Chat
