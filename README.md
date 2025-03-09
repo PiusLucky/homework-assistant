@@ -2,7 +2,7 @@
 A realtime homework assistant AI application built with SocketIO, GPT Models, Node, and Nextjs.
 
 Youtube: 
-
+https://youtu.be/0PGBEfaQkXc
 
 # 💻 Desktop View
 ![image](https://github.com/user-attachments/assets/4f691844-5cdf-4edf-ae6b-e981ceba29fc)
