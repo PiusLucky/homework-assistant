@@ -7,23 +7,10 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import axios from "axios";
 import { BASE_URL, token, hwaApplicationId } from "@/lib/constant";
+import { Menu, X } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const CURRICULUMS = ["Nigerian", "British", "American"];
-
-const CLASS_LEVELS = [
-  "Primary 1",
-  "Primary 2",
-  "Primary 3",
-  "Primary 4",
-  "Primary 5",
-  "Primary 6",
-  "JSS 1",
-  "JSS 2",
-  "JSS 3",
-  "SSS 1",
-  "SSS 2",
-  "SSS 3",
-];
 
 // Create an Axios instance with the token
 const axiosInstance = axios.create({
@@ -45,8 +32,7 @@ export default function Home() {
   const [conversationGroups, setConversationGroups] = useState<any[]>([]);
   const [hasMore, setHasMore] = useState(true);
   const [showNewChatModal, setShowNewChatModal] = useState(false);
-  const [selectedCurriculum, setSelectedCurriculum] = useState("Biology");
-  const [selectedClass, setSelectedClass] = useState("JSS 1");
+  const [selectedCurriculum, setSelectedCurriculum] = useState("British");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const [activeConversation, setActiveConversation] = useState<string | null>(
     null
@@ -56,6 +42,9 @@ export default function Home() {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [isFetchingConversations, setIsFetchingConversations] = useState(true);
   const [limit, setLimit] = useState(10);
+
+  // Add state for mobile sidebar
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -292,7 +281,6 @@ export default function Home() {
       curriculum: initialMessageCurriculum
         ? initialMessageCurriculum
         : selectedCurriculum,
-      studentClass: selectedClass,
       messageType: messageType,
       ...(isFirstMessage ? { isNewChat: true } : {}),
       groupId: isFirstMessage ? undefined : activeConversation,
@@ -380,82 +368,60 @@ export default function Home() {
     }
   }, [messages, activeConversation]);
 
+  // Toggle sidebar function
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => !prev);
+  };
+
+  // Close sidebar when selecting a conversation on mobile
+  const handleMobileConversationClick = (groupId: string) => {
+    handleConversationClick(groupId);
+    setSidebarOpen(false);
+  };
+
   return (
-    <main className="flex !h-screen bg-gray-100 dark:bg-gray-900">
-      {/* New Chat Modal */}
-      {showNewChatModal && (
-        <div className="!fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-96">
-            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
-              Start New Chat
-            </h2>
+    <main className="flex flex-col md:flex-row !h-screen bg-gray-100 dark:bg-gray-900 relative overflow-hidden">
+      {/* Mobile Header with Menu Button */}
+      <div className="md:hidden bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
+        <button
+          onClick={toggleSidebar}
+          className="p-2 rounded-md bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          aria-label="Toggle sidebar"
+        >
+          <Menu size={20} className="text-gray-600 dark:text-gray-300" />
+        </button>
+        <h1 className="text-xl font-bold text-gray-800 dark:text-white">
+          Homework Assistant
+        </h1>
+        <div className="w-8"></div> {/* Spacer for alignment */}
+      </div>
 
-            {/* Curriculum Selection */}
-            <div className="mb-4">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Curriculum
-              </label>
-              <select
-                value={selectedCurriculum}
-                onChange={(e) => setSelectedCurriculum(e.target.value)}
-                className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-              >
-                {CURRICULUMS.map((curriculum) => (
-                  <option key={curriculum} value={curriculum}>
-                    {curriculum}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Class Selection */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Select Class
-              </label>
-              <select
-                value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
-                className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
-              >
-                {CLASS_LEVELS.map((level) => (
-                  <option key={level} value={level}>
-                    {level}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Modal Actions */}
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowNewChatModal(false)}
-                className="px-4 py-2 bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400 hover:from-gray-500 hover:via-gray-600 hover:to-gray-500 text-white rounded-md transition-all duration-200 shadow-md hover:shadow-lg"
-                disabled={isLoading}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={startNewChat}
-                disabled={isLoading}
-                className="px-4 py-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white rounded-md transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
-              >
-                {isLoading ? (
-                  <>
-                    <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
-                    Creating...
-                  </>
-                ) : (
-                  "Start Chat"
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
+      {/* Overlay for mobile when sidebar is open */}
+      {sidebarOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-20"
+          onClick={() => setSidebarOpen(false)}
+        ></div>
       )}
 
       {/* Sidebar */}
-      <div className="w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col">
+      <div
+        className={cn(
+          "w-full md:w-80 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col",
+          "fixed md:relative z-30 h-[calc(100%-60px)] md:h-screen transition-transform duration-300 ease-in-out",
+          sidebarOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"
+        )}
+      >
+        {/* Close button for mobile sidebar */}
+        <div className="md:hidden p-4 flex justify-end">
+          <button
+            onClick={() => setSidebarOpen(false)}
+            className="p-2 rounded-full bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+          >
+            <X size={20} className="text-gray-600 dark:text-gray-300" />
+          </button>
+        </div>
+
         {/* New Chat Button */}
         <div className="p-4 border-b border-gray-200 dark:border-gray-700">
           <button
@@ -498,7 +464,7 @@ export default function Home() {
                 {conversationGroups.map((group) => (
                   <li
                     key={group.id}
-                    onClick={() => handleConversationClick(group.id)}
+                    onClick={() => handleMobileConversationClick(group.id)}
                     className={`p-3 rounded-lg cursor-pointer transition-all duration-200 flex items-center gap-3 ${
                       activeConversation === group.id
                         ? "bg-gradient-to-r from-indigo-50 to-purple-50 border border-indigo-200 shadow-sm"
@@ -567,9 +533,9 @@ export default function Home() {
       </div>
 
       {/* Main Chat Area */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex-1 flex flex-col h-[calc(100%-60px)] md:h-screen overflow-hidden">
         {/* Chat Header with Dropdowns */}
-        <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
+        <div className="hidden md:block bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-xl font-bold text-gray-800 dark:text-white">
               Homework Assistant Chat
@@ -598,7 +564,7 @@ export default function Home() {
               <h3 className="mt-4 text-lg font-medium text-gray-900 dark:text-gray-100">
                 Select a conversation to begin
               </h3>
-              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
+              <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 px-4">
                 Choose an existing conversation from the sidebar or start a new
                 one using the &ldquo;New Chat&rdquo; button
               </p>
@@ -617,8 +583,7 @@ export default function Home() {
                   <div className="flex flex-col items-center space-y-1">
                     <span>Preparing your conversation</span>
                     <span className="text-sm text-gray-500">
-                      Setting up {selectedCurriculum} assistant for{" "}
-                      {selectedClass}
+                      Setting up {selectedCurriculum} assistant
                     </span>
                   </div>
                 ) : (
@@ -642,8 +607,7 @@ export default function Home() {
                       Start Your Conversation
                     </h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
-                      Ask any question about {selectedCurriculum} for{" "}
-                      {selectedClass}
+                      Ask any question about {selectedCurriculum}
                     </p>
                   </div>
                 </div>
@@ -689,7 +653,7 @@ export default function Home() {
                         </div>
                       </div>
                       <div className="text-sm text-gray-600 dark:text-gray-300 font-medium">
-                        Brilliance AI is thinking...
+                        AI is thinking...
                       </div>
                     </div>
                   )}
@@ -699,12 +663,66 @@ export default function Home() {
             </div>
 
             {/* Chat Input */}
-            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4">
+            <div className="bg-white dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 p-4 w-full">
               <ChatInput onSend={handleSendMessage} isTyping={isTyping} />
             </div>
           </>
         )}
       </div>
+
+      {/* New Chat Modal - Move outside of main content flow */}
+      {showNewChatModal && (
+        <div className="!fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-sm mx-4 sm:mx-0 sm:w-96">
+            <h2 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">
+              Start New Chat
+            </h2>
+
+            {/* Curriculum Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Select Curriculum
+              </label>
+              <select
+                value={selectedCurriculum}
+                onChange={(e) => setSelectedCurriculum(e.target.value)}
+                className="w-full p-2 border rounded-md bg-white dark:bg-gray-700 text-gray-800 dark:text-white"
+              >
+                {CURRICULUMS.map((curriculum) => (
+                  <option key={curriculum} value={curriculum}>
+                    {curriculum}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowNewChatModal(false)}
+                className="px-4 py-2 bg-gradient-to-r from-gray-400 via-gray-500 to-gray-400 hover:from-gray-500 hover:via-gray-600 hover:to-gray-500 text-white rounded-md transition-all duration-200 shadow-md hover:shadow-lg"
+                disabled={isLoading}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={startNewChat}
+                disabled={isLoading}
+                className="px-4 py-2 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 hover:from-indigo-500 hover:via-purple-500 hover:to-pink-500 text-white rounded-md transition-all duration-200 shadow-md hover:shadow-lg flex items-center gap-2"
+              >
+                {isLoading ? (
+                  <>
+                    <div className="w-5 h-5 rounded-full border-2 border-white border-t-transparent animate-spin"></div>
+                    Creating...
+                  </>
+                ) : (
+                  "Start Chat"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
